@@ -1,0 +1,43 @@
+name: dn-watch
+on:
+  schedule:
+    # UTC. Two starts so daylight saving cannot make us miss 07:00 Swedish time (UTC+1 winter / UTC+2 summer).
+    # The script itself checks the real Stockholm clock: it waits until 07:00, polls every 60 s until 10:00,
+    # and exits at once on weekends / after 10:00. This is a public repo, so Actions minutes are free.
+    - cron: "30 4 * * 1-5"
+    - cron: "30 5 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Test mode: ignore the clock and poll for force_seconds"
+        type: boolean
+        default: false
+      force_seconds:
+        description: "Seconds to poll in test mode"
+        default: "120"
+permissions:
+  contents: write            # to commit state.json (the memory of what has been seen)
+concurrency:
+  group: dn-watch
+  cancel-in-progress: false  # a later start waits, then exits immediately (after 10:00)
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Watch DN Fastigheter
+        run: node watch.mjs
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          FORCE_WINDOW: ${{ inputs.force && '1' || '0' }}
+          FORCE_SECONDS: ${{ inputs.force_seconds }}
+      - name: Save state
+        if: always()          # keep what was seen even if the step above failed or timed out
+        run: |
+          git config user.name "dn-watcher"
+          git config user.email "bot@users.noreply.github.com"
+          git add state.json
+          git diff --cached --quiet || (git commit -m "update state" && git pull -q --rebase && git push)

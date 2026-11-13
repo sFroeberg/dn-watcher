@@ -1,0 +1,7 @@
+{
+  "name": "dn-watcher",
+  "version": "1.0.0",
+  "description": "Watches DN Fastigheter's list of available apartments and sends a push notification (ntfy) when something new appears",
+  "type": "module",
+  "scripts": { "test": "node test/test.mjs" }
+}
